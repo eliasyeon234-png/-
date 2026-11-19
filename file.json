@@ -1,0 +1,13 @@
+{
+  "name": "성경 · Biblia (개역한글 / RV1960)",
+  "short_name": "성경",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "lang": "ko",
+  "background_color": "#faf8f3",
+  "theme_color": "#8a5a2b",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

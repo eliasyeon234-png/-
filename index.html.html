@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>성경 · Biblia (개역한글 / RV1960)</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#8a5a2b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="성경">
+<style>
+:root{--bg:#faf8f3;--fg:#222;--muted:#777;--card:#fff;--line:#e3ded3;--accent:#8a5a2b;--hl:#fff1a8}
+body.dark{--bg:#16181c;--fg:#e6e6e6;--muted:#9a9a9a;--card:#1f2228;--line:#353a45;--accent:#e0a868;--hl:#5c4d00}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif}
+header{position:sticky;top:0;z-index:10;background:var(--card);border-bottom:1px solid var(--line);padding:8px 12px}
+@media(max-width:759px){header{position:static}}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;max-width:1100px;margin:0 auto}
+.bar+.bar{margin-top:6px}
+select,button,input{font:inherit;font-size:16px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)}
+select{min-width:0;max-width:100%}
+button{cursor:pointer}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+#q{flex:1;min-width:160px}
+main{max-width:1100px;margin:0 auto;padding:16px 14px 110px}
+h1{font-size:1.3em;margin:6px 0 16px;color:var(--accent)}
+.verse{display:flex;gap:10px;padding:6px 8px;border-radius:8px;line-height:1.75;cursor:pointer}
+.verse.hl{background:var(--hl)}
+.verse.sel{box-shadow:inset 0 0 0 2px var(--accent)}
+.verse.bm .num::after{content:"★";display:block}
+.num{flex:0 0 2em;text-align:right;color:var(--accent);font-size:.8em;padding-top:.3em;font-weight:700}
+.cols{flex:1;display:grid;gap:4px 24px;grid-template-columns:1fr}
+.cols p{margin:0}
+.vn{color:var(--accent);font-size:.75em;font-weight:700;margin-right:.4em;vertical-align:.15em}
+@media(min-width:760px){.cols.two{grid-template-columns:1fr 1fr}}
+@media(max-width:759px){.cols.two .es{color:var(--muted)}}
+.nav{display:flex;justify-content:space-between;margin-top:24px}
+.result{padding:10px 8px;border-bottom:1px solid var(--line);cursor:pointer;line-height:1.65}
+.result:hover{background:var(--card)}
+.ref{font-weight:700;color:var(--accent);font-size:.85em}
+.other{color:var(--muted);font-size:.9em}
+.del{float:right;margin-left:8px;padding:2px 9px;font-size:14px}
+mark{background:var(--hl);color:inherit;padding:0 1px;border-radius:3px}
+.msg{color:var(--muted);padding:20px 4px}
+footer{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--line);font-size:12px;color:var(--muted);padding:5px 12px;text-align:center}
+#actions{position:fixed;bottom:0;left:0;right:0;z-index:20;background:var(--card);border-top:2px solid var(--accent);padding:8px 12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center}
+#selCount{font-size:14px;color:var(--muted);margin-right:4px}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#333;color:#fff;padding:8px 16px;border-radius:20px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:30;white-space:nowrap}
+#toast.on{opacity:1}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <select id="book" aria-label="책"></select>
+    <select id="chapter" aria-label="장"></select>
+    <select id="mode" aria-label="역본">
+      <option value="both">개역한글 + RV1960</option>
+      <option value="ko">개역한글</option>
+      <option value="es">RV1960</option>
+    </select>
+    <button id="prev" title="이전 장">◀</button>
+    <button id="next" title="다음 장">▶</button>
+    <button id="fsDown" title="글자 작게">가−</button>
+    <button id="fsUp" title="글자 크게">가＋</button>
+    <button id="dark" title="다크 모드">🌙</button>
+    <button id="marksBtn" title="책갈피 목록">★</button>
+    <button id="install" class="primary hidden">📲 설치</button>
+  </div>
+  <form class="bar" id="searchForm">
+    <input id="q" type="search" placeholder="검색: 사랑 / amor / 요 3:16 / Juan 3:16" autocomplete="off">
+    <button class="primary" type="submit">검색</button>
+  </form>
+</header>
+
+<main>
+  <section id="reader">
+    <h1 id="title"></h1>
+    <div id="text"></div>
+    <div class="nav">
+      <button id="prev2">◀ 이전 장</button>
+      <button id="next2">다음 장 ▶</button>
+    </div>
+  </section>
+  <section id="results" class="hidden">
+    <button id="back">← 본문으로</button>
+    <h1 id="resTitle"></h1>
+    <div id="resList"></div>
+  </section>
+  <section id="marks" class="hidden">
+    <button id="back2">← 본문으로</button>
+    <h1 id="markTitle"></h1>
+    <div id="markList"></div>
+  </section>
+</main>
+
+<footer id="status"></footer>
+<div id="actions" class="hidden">
+  <span id="selCount"></span>
+  <button id="copyBtn" class="primary">복사</button>
+  <button id="markBtn">☆ 책갈피</button>
+  <button id="cancelBtn">취소</button>
+</div>
+<div id="toast"></div>
+
+<script>
+/* ---------- 기본 데이터 ---------- */
+const KO=['창세기','출애굽기','레위기','민수기','신명기','여호수아','사사기','룻기','사무엘상','사무엘하','열왕기상','열왕기하','역대상','역대하','에스라','느헤미야','에스더','욥기','시편','잠언','전도서','아가','이사야','예레미야','예레미야애가','에스겔','다니엘','호세아','요엘','아모스','오바댜','요나','미가','나훔','하박국','스바냐','학개','스가랴','말라기','마태복음','마가복음','누가복음','요한복음','사도행전','로마서','고린도전서','고린도후서','갈라디아서','에베소서','빌립보서','골로새서','데살로니가전서','데살로니가후서','디모데전서','디모데후서','디도서','빌레몬서','히브리서','야고보서','베드로전서','베드로후서','요한일서','요한이서','요한삼서','유다서','요한계시록'];
+const KO_AB=['창','출','레','민','신','수','삿','룻','삼상','삼하','왕상','왕하','대상','대하','스','느','에','욥','시','잠','전','아','사','렘','애','겔','단','호','욜','암','옵','욘','미','나','합','습','학','슥','말','마','막','눅','요','행','롬','고전','고후','갈','엡','빌','골','살전','살후','딤전','딤후','딛','몬','히','약','벧전','벧후','요일','요이','요삼','유','계'];
+const ES=['Génesis','Éxodo','Levítico','Números','Deuteronomio','Josué','Jueces','Rut','1 Samuel','2 Samuel','1 Reyes','2 Reyes','1 Crónicas','2 Crónicas','Esdras','Nehemías','Ester','Job','Salmos','Proverbios','Eclesiastés','Cantares','Isaías','Jeremías','Lamentaciones','Ezequiel','Daniel','Oseas','Joel','Amós','Abdías','Jonás','Miqueas','Nahúm','Habacuc','Sofonías','Hageo','Zacarías','Malaquías','Mateo','Marcos','Lucas','Juan','Hechos','Romanos','1 Corintios','2 Corintios','Gálatas','Efesios','Filipenses','Colosenses','1 Tesalonicenses','2 Tesalonicenses','1 Timoteo','2 Timoteo','Tito','Filemón','Hebreos','Santiago','1 Pedro','2 Pedro','1 Juan','2 Juan','3 Juan','Judas','Apocalipsis'];
+const CH=[50,40,27,36,34,24,21,4,31,24,22,25,29,36,10,13,10,42,150,31,12,8,66,52,5,48,12,14,3,9,1,4,7,3,3,3,2,14,4,28,16,24,21,28,16,16,13,6,6,4,4,5,3,6,4,3,1,13,5,5,3,5,1,1,1,22];
+const NAMES={ko:KO,es:ES};
+const VERSIONS={ko:{code:'KRV',label:'개역한글'},es:{code:'RV1960',label:'RV1960'}};
+const API='https://bolls.life';
+
+const ROWS={ko:null,es:null};   // [책, 장, 절, 본문] 전체 목록 (검색용)
+const DATA={ko:null,es:null};   // DATA[v][책][장][절] = 본문 (읽기용)
+const STATUS={ko:'확인 중…',es:'확인 중…'};
+const chCache={};
+
+const state=Object.assign({book:1,chapter:1,mode:'both',fs:18,dark:false},
+  JSON.parse(localStorage.getItem('bible-state')||'{}'));
+const save=()=>localStorage.setItem('bible-state',JSON.stringify(state));
+const $=id=>document.getElementById(id);
+
+/* ---------- 유틸 ---------- */
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const clean=t=>String(t||'').replace(/<S>.*?<\/S>/gi,'').replace(/<br\s*\/?>/gi,' ').replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim();
+const ACC={'á':'a','é':'e','í':'i','ó':'o','ú':'u','ü':'u'};
+const norm=s=>String(s).toLowerCase().replace(/[áéíóúü]/g,c=>ACC[c]);
+let toastTimer;
+function toast(msg){
+  const t=$('toast');
+  t.textContent=msg; t.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('on'),1800);
+}
+
+/* ---------- IndexedDB (오프라인 저장) ---------- */
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open('bible-app',1);
+    r.onupgradeneeded=()=>r.result.createObjectStore('tr');
+    r.onsuccess=()=>res(r.result);
+    r.onerror=()=>rej(r.error);
+  });
+}
+async function idbGet(key){
+  try{
+    const db=await idbOpen();
+    return await new Promise((res,rej)=>{
+      const q=db.transaction('tr').objectStore('tr').get(key);
+      q.onsuccess=()=>res(q.result||null);
+      q.onerror=()=>rej(q.error);
+    });
+  }catch(e){return null;}
+}
+async function idbSet(key,val){
+  try{
+    const db=await idbOpen();
+    await new Promise((res,rej)=>{
+      const tx=db.transaction('tr','readwrite');
+      tx.objectStore('tr').put(val,key);
+      tx.oncomplete=res; tx.onerror=()=>rej(tx.error);
+    });
+  }catch(e){console.warn('저장 실패',e);}
+}
+
+/* ---------- 본문 불러오기 ---------- */
+function useRows(v,rows){
+  const d={};
+  for(const r of rows){
+    const b=r[0],c=r[1];
+    if(!d[b])d[b]={};
+    if(!d[b][c])d[b][c]={};
+    d[b][c][r[2]]=r[3];
+  }
+  ROWS[v]=rows; DATA[v]=d;
+  STATUS[v]='저장됨 ✓ (오프라인 가능)';
+}
+async function download(v){
+  const code=VERSIONS[v].code;
+  STATUS[v]='내려받는 중…'; showStatus();
+  const r=await fetch(`${API}/static/translations/${code}.json`);
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  const raw=await r.json();
+  const rows=raw.filter(x=>x.book>=1&&x.book<=66)
+    .map(x=>[+x.book,+x.chapter,+x.verse,clean(x.text)])
+    .sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]);
+  if(rows.length<20000)throw new Error('데이터 형식이 예상과 다릅니다');
+  useRows(v,rows);
+  idbSet(code,rows);
+}
+async function getChapter(v,b,c){
+  if(DATA[v])return (DATA[v][b]||{})[c]||{};
+  const k=`${v}/${b}/${c}`;
+  if(!chCache[k]){
+    const r=await fetch(`${API}/get-text/${VERSIONS[v].code}/${b}/${c}/`);
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const arr=await r.json(), o={};
+    arr.forEach(x=>o[x.verse]=clean(x.text));
+    chCache[k]=o;
+  }
+  return chCache[k];
+}
+function verseText(v,b,c,n){
+  const ch=DATA[v]?(DATA[v][b]||{})[c]:chCache[`${v}/${b}/${c}`];
+  return (ch&&ch[n])||'';
+}
+function showStatus(){
+  $('status').textContent=`개역한글: ${STATUS.ko}  |  RV1960: ${STATUS.es}`;
+}
+
+/* ---------- 화면 전환 ---------- */
+function show(name){
+  for(const id of ['reader','results','marks'])$(id).classList.toggle('hidden',id!==name);
+  if(name!=='reader')clearSel();
+}
+
+/* ---------- 책갈피 저장소 ---------- */
+let marks=[];
+try{marks=JSON.parse(localStorage.getItem('bible-marks')||'[]');}catch(e){marks=[];}
+const saveMarks=()=>localStorage.setItem('bible-marks',JSON.stringify(marks));
+const isMarked=(b,c,v)=>marks.some(m=>m.b===b&&m.c===c&&m.v===v);
+
+/* ---------- 읽기 화면 ---------- */
+let token=0;
+let cur={vs:[],chs:[],b:0,c:0};   // 지금 화면에 표시된 장
+const sel=new Set();              // 선택한 절 번호
+
+async function render(hlVerse){
+  const my=++token;
+  clearSel();
+  const vs=state.mode==='both'?['ko','es']:[state.mode];
+  const b=state.book,c=state.chapter;
+  $('title').textContent=vs.map(v=>NAMES[v][b-1]).join(' · ')+' '+c;
+  $('text').innerHTML='<p class="msg">불러오는 중…</p>';
+  try{
+    const chs=await Promise.all(vs.map(v=>getChapter(v,b,c)));
+    if(my!==token)return;
+    const nums=[...new Set(chs.flatMap(o=>Object.keys(o).map(Number)))].sort((x,y)=>x-y);
+    if(!nums.length){$('text').innerHTML='<p class="msg">본문을 찾을 수 없습니다.</p>';return;}
+    cur={vs,chs,b,c};
+    $('text').innerHTML=nums.map(n=>
+      `<div class="verse${isMarked(b,c,n)?' bm':''}" id="v${n}" data-n="${n}"><span class="num">${n}</span><div class="cols${vs.length>1?' two':''}">`+
+      vs.map((v,i)=>`<p class="${v}" lang="${v}">${i>0&&chs[i][n]?`<span class="vn">${n}</span>`:''}${esc(chs[i][n]||'')}</p>`).join('')+
+      `</div></div>`).join('');
+    const el=hlVerse&&$('v'+hlVerse);
+    if(el){el.classList.add('hl');el.scrollIntoView({block:'center'});}
+    else window.scrollTo(0,0);
+  }catch(e){
+    if(my!==token)return;
+    $('text').innerHTML=`<p class="msg">본문을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.<br>(${esc(e.message)})</p>`;
+  }
+}
+function fillChapters(){
+  const n=CH[state.book-1];
+  let h='';
+  for(let i=1;i<=n;i++)h+=`<option value="${i}">${i}</option>`;
+  $('chapter').innerHTML=h;
+  $('chapter').value=state.chapter;
+}
+function go(b,c,v){
+  state.book=b; state.chapter=Math.min(Math.max(1,c),CH[b-1]); save();
+  $('book').value=b; fillChapters();
+  show('reader');
+  render(v);
+}
+function step(d){
+  let b=state.book,c=state.chapter+d;
+  if(c<1){ if(b===1)return; b--; c=CH[b-1]; }
+  else if(c>CH[b-1]){ if(b===66)return; b++; c=1; }
+  go(b,c);
+}
+
+/* ---------- 절 선택 · 복사 · 책갈피 ---------- */
+function updateSel(){
+  document.querySelectorAll('#text .verse').forEach(el=>el.classList.toggle('sel',sel.has(+el.dataset.n)));
+  const n=sel.size;
+  $('actions').classList.toggle('hidden',!n);
+  if(n){
+    $('selCount').textContent=n+'절 선택';
+    const all=[...sel].every(v=>isMarked(cur.b,cur.c,v));
+    $('markBtn').textContent=all?'★ 책갈피 해제':'☆ 책갈피';
+  }
+}
+function clearSel(){sel.clear();updateSel();}
+
+function ranges(nums){            // [16,17,18,20] → "16-18, 20"
+  const out=[]; let s=nums[0],p=nums[0];
+  for(let i=1;i<=nums.length;i++){
+    const n=nums[i];
+    if(n===p+1){p=n;continue;}
+    out.push(s===p?`${s}`:`${s}-${p}`);
+    s=p=n;
+  }
+  return out.join(', ');
+}
+function selectionText(){
+  const nums=[...sel].sort((a,b)=>a-b);
+  const {vs,chs,b,c}=cur;
+  return vs.map((v,i)=>{
+    const body=nums.map(n=>(nums.length>1?n+' ':'')+(chs[i][n]||'')).join('\n');
+    return `${NAMES[v][b-1]} ${c}:${ranges(nums)} (${VERSIONS[v].label})\n${body}`;
+  }).join('\n\n');
+}
+async function copySel(){
+  if(!sel.size)return;
+  const text=selectionText();
+  let ok=false;
+  try{await navigator.clipboard.writeText(text);ok=true;}
+  catch(e){
+    const ta=document.createElement('textarea');
+    ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ok=document.execCommand('copy');}catch(e2){}
+    ta.remove();
+  }
+  toast(ok?'복사했습니다 · Copiado':'복사하지 못했습니다');
+  if(ok)clearSel();
+}
+function toggleMarks(){
+  const {b,c}=cur, vs=[...sel].sort((x,y)=>x-y);
+  if(!vs.length)return;
+  const all=vs.every(v=>isMarked(b,c,v));
+  if(all)marks=marks.filter(m=>!(m.b===b&&m.c===c&&sel.has(m.v)));
+  else{
+    const t=Date.now();
+    for(const v of vs)if(!isMarked(b,c,v))marks.push({b,c,v,t});
+  }
+  saveMarks();
+  document.querySelectorAll('#text .verse').forEach(el=>el.classList.toggle('bm',isMarked(b,c,+el.dataset.n)));
+  toast(all?'책갈피를 해제했습니다':'책갈피에 추가했습니다');
+  clearSel();
+}
+function renderMarks(){
+  $('markTitle').textContent=`책갈피 · Marcadores (${marks.length})`;
+  if(!marks.length){
+    $('markList').innerHTML='<p class="msg">아직 책갈피가 없습니다. 본문에서 절을 눌러 선택한 뒤 「☆ 책갈피」를 누르세요.</p>';
+    return;
+  }
+  const list=[...marks].sort((x,y)=>y.t-x.t||x.b-y.b||x.c-y.c||x.v-y.v);   // 최근 것부터
+  $('markList').innerHTML=list.map(m=>{
+    const ko=verseText('ko',m.b,m.c,m.v), es=verseText('es',m.b,m.c,m.v);
+    return `<div class="result" data-b="${m.b}" data-c="${m.c}" data-v="${m.v}">`+
+      `<button class="del" title="삭제" aria-label="삭제">✕</button>`+
+      `<div class="ref">${esc(KO[m.b-1])} · ${esc(ES[m.b-1])} ${m.c}:${m.v}</div>`+
+      (ko?`<div>${esc(ko)}</div>`:'')+
+      (es?`<div class="other">${esc(es)}</div>`:'')+`</div>`;
+  }).join('');
+}
+function showMarks(){
+  show('marks'); renderMarks(); window.scrollTo(0,0);
+}
+
+/* ---------- 검색 ---------- */
+function findBook(name){
+  const s=norm(name).replace(/\s+/g,'');
+  if(!s)return 0;
+  const es=ES.map(x=>norm(x).replace(/\s+/g,''));
+  let i=KO_AB.indexOf(s); if(i>=0)return i+1;
+  i=KO.indexOf(s); if(i>=0)return i+1;
+  i=es.indexOf(s); if(i>=0)return i+1;
+  if(s.length>=2){i=KO.findIndex(x=>x.startsWith(s)); if(i>=0)return i+1;}
+  if(s.length>=3){i=es.findIndex(x=>x.startsWith(s)); if(i>=0)return i+1;}
+  return 0;
+}
+function parseRef(q){
+  const m=q.match(/^(.+?)\s*(\d+)\s*(?:(?:[:.]|장|편)\s*(\d+)?\s*절?)?$/);
+  if(!m)return null;
+  const b=findBook(m[1]); if(!b)return null;
+  const c=+m[2]; if(c<1||c>CH[b-1])return null;
+  return {b,c,v:m[3]?+m[3]:0};
+}
+function highlight(text,terms){
+  const n=norm(text);
+  if(n.length!==text.length)return esc(text);
+  const marksArr=new Array(text.length).fill(false);
+  for(const t of terms){
+    let i=0;
+    while((i=n.indexOf(t,i))!==-1){for(let k=i;k<i+t.length;k++)marksArr[k]=true;i+=t.length;}
+  }
+  let out='',open=false;
+  for(let i=0;i<text.length;i++){
+    if(marksArr[i]&&!open){out+='<mark>';open=true;}
+    if(!marksArr[i]&&open){out+='</mark>';open=false;}
+    out+=esc(text[i]);
+  }
+  return out+(open?'</mark>':'');
+}
+async function doSearch(){
+  const q=$('q').value.trim();
+  if(!q)return;
+  const ref=parseRef(q);
+  if(ref){go(ref.b,ref.c,ref.v);return;}
+
+  const v=/[\u3131-\u318E\uAC00-\uD7A3]/.test(q)?'ko':'es';
+  const other=v==='ko'?'es':'ko';
+  const phrase=q.match(/^"(.+)"$/);
+  const terms=phrase?[norm(phrase[1])]:norm(q).split(/\s+/).filter(Boolean);
+
+  show('results');
+  $('resTitle').textContent='검색 중…'; $('resList').innerHTML='';
+  window.scrollTo(0,0);
+
+  let hits;
+  try{
+    if(ROWS[v]){
+      hits=ROWS[v].filter(r=>{const n=norm(r[3]);return terms.every(t=>n.includes(t));});
+    }else{
+      const r=await fetch(`${API}/v2/find/${VERSIONS[v].code}?search=${encodeURIComponent(phrase?phrase[1]:q)}&match_case=false&match_whole=false&limit=500`);
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const j=await r.json();
+      hits=(Array.isArray(j)?j:(j.results||[])).map(x=>[+x.book,+x.chapter,+x.verse,clean(x.text)]);
+    }
+  }catch(e){
+    $('resTitle').textContent='검색 실패';
+    $('resList').innerHTML=`<p class="msg">검색하지 못했습니다. 본문 내려받기가 끝난 뒤 다시 시도해 주세요. (${esc(e.message)})</p>`;
+    return;
+  }
+  const MAX=300;
+  $('resTitle').textContent=`"${q}" — ${VERSIONS[v].label}에서 ${hits.length}절`+(hits.length>MAX?` (처음 ${MAX}절 표시)`:'');
+  if(!hits.length){$('resList').innerHTML='<p class="msg">결과가 없습니다. / Sin resultados.</p>';return;}
+  $('resList').innerHTML=hits.slice(0,MAX).map(([b,c,n,t])=>{
+    const o=verseText(other,b,c,n);
+    return `<div class="result" data-b="${b}" data-c="${c}" data-v="${n}">`+
+      `<div class="ref">${esc(KO[b-1])} · ${esc(ES[b-1])} ${c}:${n}</div>`+
+      `<div>${highlight(t,terms)}</div>`+
+      (o?`<div class="other">${esc(o)}</div>`:'')+`</div>`;
+  }).join('');
+}
+
+/* ---------- 홈 화면 설치 (PWA) ---------- */
+function setupInstall(){
+  // 아이폰용 아이콘을 즉석에서 그려 등록
+  try{
+    const c=document.createElement('canvas'); c.width=c.height=180;
+    const x=c.getContext('2d');
+    x.fillStyle='#8a5a2b'; x.fillRect(0,0,180,180);
+    x.fillStyle='#fff'; x.fillRect(79,34,22,112); x.fillRect(51,66,78,22);
+    const l=document.createElement('link');
+    l.rel='apple-touch-icon'; l.href=c.toDataURL('image/png');
+    document.head.appendChild(l);
+  }catch(e){}
+
+  if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+    navigator.serviceWorker.register('sw.js').catch(e=>console.warn('서비스 워커 등록 실패',e));
+  }
+  if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
+
+  let deferred=null;
+  window.addEventListener('beforeinstallprompt',e=>{
+    e.preventDefault(); deferred=e;
+    $('install').classList.remove('hidden');
+  });
+  $('install').onclick=async()=>{
+    if(!deferred)return;
+    deferred.prompt();
+    try{await deferred.userChoice;}catch(e){}
+    deferred=null;
+    $('install').classList.add('hidden');
+  };
+  window.addEventListener('appinstalled',()=>$('install').classList.add('hidden'));
+}
+
+/* ---------- 화면 설정 및 시작 ---------- */
+function applyLook(){
+  document.body.classList.toggle('dark',!!state.dark);
+  $('text').style.fontSize=$('resList').style.fontSize=$('markList').style.fontSize=state.fs+'px';
+}
+function buildUI(){
+  const opt=(a,b)=>{let h='';for(let i=a;i<=b;i++)h+=`<option value="${i}">${KO[i-1]} · ${ES[i-1]}</option>`;return h;};
+  $('book').innerHTML=`<optgroup label="구약 · Antiguo Testamento">${opt(1,39)}</optgroup><optgroup label="신약 · Nuevo Testamento">${opt(40,66)}</optgroup>`;
+  $('book').value=state.book; fillChapters(); $('mode').value=state.mode;
+
+  $('book').onchange=e=>go(+e.target.value,1);
+  $('chapter').onchange=e=>go(state.book,+e.target.value);
+  $('mode').onchange=e=>{state.mode=e.target.value;save();render();};
+  $('prev').onclick=$('prev2').onclick=()=>step(-1);
+  $('next').onclick=$('next2').onclick=()=>step(1);
+  $('fsUp').onclick=()=>{state.fs=Math.min(32,state.fs+2);save();applyLook();};
+  $('fsDown').onclick=()=>{state.fs=Math.max(12,state.fs-2);save();applyLook();};
+  $('dark').onclick=()=>{state.dark=!state.dark;save();applyLook();};
+  $('back').onclick=$('back2').onclick=()=>show('reader');
+  $('searchForm').onsubmit=e=>{e.preventDefault();doSearch();};
+  $('resList').onclick=e=>{
+    const r=e.target.closest('.result');
+    if(r)go(+r.dataset.b,+r.dataset.c,+r.dataset.v);
+  };
+
+  // 절 선택 · 복사 · 책갈피
+  $('text').onclick=e=>{
+    const el=e.target.closest('.verse');
+    if(!el)return;
+    if(String(window.getSelection()))return;   // 글자를 드래그해 고르는 중이면 무시
+    const n=+el.dataset.n;
+    if(sel.has(n))sel.delete(n); else sel.add(n);
+    updateSel();
+  };
+  $('copyBtn').onclick=copySel;
+  $('markBtn').onclick=toggleMarks;
+  $('cancelBtn').onclick=clearSel;
+  $('marksBtn').onclick=showMarks;
+  $('markList').onclick=e=>{
+    const r=e.target.closest('.result');
+    if(!r)return;
+    const b=+r.dataset.b,c=+r.dataset.c,v=+r.dataset.v;
+    if(e.target.closest('.del')){
+      marks=marks.filter(m=>!(m.b===b&&m.c===c&&m.v===v));
+      saveMarks(); renderMarks();
+      return;
+    }
+    go(b,c,v);
+  };
+
+  document.addEventListener('keydown',e=>{
+    if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;
+    if($('reader').classList.contains('hidden'))return;
+    if(e.key==='Escape')clearSel();
+    if(e.key==='ArrowLeft')step(-1);
+    if(e.key==='ArrowRight')step(1);
+  });
+}
+async function init(){
+  buildUI(); applyLook(); showStatus(); setupInstall();
+  for(const v of ['ko','es']){
+    const rows=await idbGet(VERSIONS[v].code);
+    if(rows)useRows(v,rows);
+  }
+  showStatus();
+  render();
+  for(const v of ['ko','es']){
+    if(ROWS[v])continue;
+    try{await download(v);}
+    catch(e){console.warn(v,e);STATUS[v]='온라인 모드 (전체 내려받기 실패)';}
+    showStatus();
+  }
+}
+init();
+</script>
+</body>
+</html>
